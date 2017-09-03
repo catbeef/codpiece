@@ -1,0 +1,30 @@
+{
+  "name": "codpiece",
+  "version": "0.0.1",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "build": "rollup src/index.js -f cjs -m inline -o dist/index.js",
+    "lint": "eslint src",
+    "test": "npm run build && tap test/*.js",
+    "test-local": "npm run build && TAP_RCFILE=.taprc tap test/*.js"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/catbeef/codpiece.git"
+  },
+  "author": "Darien Maillet Valentine",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/catbeef/codpiece/issues"
+  },
+  "homepage": "https://github.com/catbeef/codpiece#readme",
+  "devDependencies": {
+    "eslint": "^4.6.0",
+    "rollup": "^0.49.2",
+    "tap": "^10.7.2"
+  },
+  "dependencies": {
+    "codpoint": "^1.0.1"
+  }
+}
