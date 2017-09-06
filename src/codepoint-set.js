@@ -2,7 +2,7 @@ import assert from 'assert';
 import unicode from 'unicode-10.0.0';
 
 const clearPriv = set => {
-  PRIV.set(this, { hasASCII: undefined, hasNonASCII: undefined });
+  PRIV.set(set, { hasASCII: undefined, hasNonASCII: undefined });
 };
 
 const getPropertyArr = propertyName => {
@@ -62,8 +62,6 @@ const PROPERTIES = new Map([
 
 export default class CodePointSet extends Set {
   constructor(seed) {
-    super();
-
     if (typeof seed === 'number') {
       validateCodePoint(seed);
       super([ seed ]);
@@ -103,7 +101,7 @@ export default class CodePointSet extends Set {
     const priv = PRIV.get(this);
 
     if (priv.hasNonASCII === undefined) {
-      const asciiCount = 0;
+      let asciiCount = 0;
 
       for (let i = 0; i < 0x80; i++) {
         asciiCount += Number(super.has(i));

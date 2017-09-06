@@ -1,0 +1,203 @@
+@CONSTANT
+  class RHS {
+    constructor(condition, members) {
+      this.condition = condition;
+      this.members = members;
+    }
+  }
+
+  class RHSMember {
+    constructor(unit, quantifier) {
+
+    }
+  }
+;;
+
+@SETUP
+  this.grammar = {
+    constant: undefined,
+    name: undefined,
+    referencedRules: new Map(),
+    rules: new Map()
+    setup: undefined
+  };
+;;
+
+Arguments
+  | "(" I* (#$args:Identifier I* ("," I* #$args:Identifier I*)*)? ")"
+  @EXEC (args)
+    if (new Set(args).size < args.length) {
+      const dupe = args.find((arg, i) => params.lastIndexOf(arg) !== i);
+      throw new Error(`Duplicate argument ${ dupe }`);
+    }
+  ;;
+  @EXPOSE (args)
+    return args.sort();
+  ;;
+  ;
+
+Comment
+  | "//" [^\${LineTerminator}]*
+  | "/*" [.]* "*/"
+  ;
+
+Constant
+  | "@CONSTANT" I* $cod:[.]* ";;"
+  @EXEC (cod)
+    this.grammar.constant = cod;
+  ;;
+  ;
+
+Exec
+  | "@EXEC" I* args:Arguments I* $cod:[.]*
+  @EXPOSE (args, cod)
+    return { args, cod };
+  ;;
+  ;
+
+Grammar
+  | I* Constant? I* Setup? I* Rule+ I*
+  @EXEC ()
+    for (const [ ruleName, params ] of this.grammar.referencedRules) {
+      if (!this.grammar.rules.has(ruleName)) {
+        throw new Error(`Rule ${ ruleName } was never defined`);
+      }
+
+      const rule = this.grammar.rules.get(ruleName);
+
+      const matches =
+        rule.params.length === params.size &&
+        rule.params.every(param => params.has(param));
+
+      if (!matches) {
+        throw new Error(
+          `Parameter mismatch for rule ${ ruleName }: ` +
+          `rule expects <${ rule.params.join(', ') }> but references provide ` +
+          `<${ [ ...params ].join(', ') }>`
+        );
+      }
+    }
+  ;;
+  ;
+
+Identifier
+  | [\p{XID_Start}] [\p{XID_CONTINUE}]*
+  ;
+
+I
+  | Comment
+  | Whitespace
+  ;
+
+LineTerminator
+  | [\n\r\u2028\u2029]
+  ;
+
+RHS
+  | "|" I* condition:RHSCondition? I* members:RHSMember*
+  @EXPOSE (members)
+    return new RHS(condition, members);
+  ;;
+  ;
+
+RHSCondition
+  | "<" I* #params:RHSParam I* ("," I* #params:RHSParam I*)* ">"
+  @EXEC (params)
+    const dupe = params.find(([ name ], i) =>
+      params.slice(i + 1).find(([ otherName ]) => otherName === name)
+    );
+
+    if (dupe) {
+      throw new Error(`Duplicate param ${ dupe[0] } in RHS condition`);
+    }
+  ;;
+  @EXPOSE (params)
+    return new Map(params);
+  ;;
+  ;
+
+RHSMember
+  | unit:RHSUnit quantifier:RHSQuantifier I*
+  @EXPOSE (unit, quantifier)
+    return new RHSMember(unit, quantifier);
+  ;;
+  ;
+
+RHSParam
+  | value:RHSParamPlusOrMinus $param:Identifier
+  @EXPOSE (value, param)
+    return [ param, value ];
+  ;;
+  ;
+
+RHSParamPlusOrMinus
+  | "+"
+  | "-"
+  @EXPOSE (__index__)
+    return __index__ === 0;
+  ;;
+  ;
+
+RHSUnit
+  | unit:RHSUnitCharacterClass
+  | unit:RHSUnitReference
+  | unit:RHSUnitSeries
+  | unit:RHSUnitStringLiteral
+  @EXPOSE (unit)
+    return unit;
+  ;;
+  ;
+
+RHSUnitCharacterClass
+  | "[.]"
+  | "[^" items:RHSUnitCharacterClassItem+ "]"
+  | "[" items:RHSUnitCharacterClassItem+ "]"
+  @EXPOSE (__index__)
+
+  ;;
+  ;
+
+Rule
+  | $name:Identifier I* params:RuleParams? I* rhs:RHS* exec:Exec? I* ";"
+  @EXEC (name, rhs, exec)
+    if (this.grammar.rules.has(name)) {
+      throw new Error(`Duplicate rule ${ name }`);
+    }
+
+    if (exec) {
+      for (const arg of exec.args) {
+        if (arg === '__index__') continue;
+
+        if (!rhs.some(rhs => rhs.hasArg(arg))) {
+          throw new Error(`Exec argument "${ arg }" appears in no RHS`);
+        }
+      }
+    }
+
+    this.grammar.rules.set(name, { name, rhs, exec });
+  ;;
+  ;
+
+RuleParams
+  | "<" I* #$params:Identifier I* ("," I* #$params:Identifier I*)* ">"
+  @EXEC (params)
+    if (new Set(params).size < params.length) {
+      const dupe = params.find((param, i) => params.lastIndexOf(param) !== i);
+      throw new Error(`Duplicate parameter ${ dupe }`);
+    }
+  ;;
+  @EXPOSE (params)
+    return params.sort();
+  ;;
+  ;
+
+Setup
+  | "@SETUP" I* $cod:[.]* ";;"
+  @EXEC (cod)
+    this.grammar.setup = cod;
+  ;;
+  ;
+
+Whitespace
+  | [\p{White_Space}]
+  ;
