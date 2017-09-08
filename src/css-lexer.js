@@ -168,8 +168,11 @@ export default class CSSLexer extends Lexer {
   }
 
   _beginTokenUnit(...cps) {
-    this._tokenValue = [ ...this.getSegment(this._tokenStart, this._length) ];
-    this._tokenMeta += this._tokenValue.length << 1;
+    this._tokenValue = [
+      ...this.getSegment(this._tokenStart, this._length - cps.length)
+    ];
+
+    this._tokenMeta |= this._tokenValue.length << 1;
     this._tokenValue.push(...cps);
   }
 
@@ -633,7 +636,7 @@ export default class CSSLexer extends Lexer {
         this._lex = this.$numberExponentE;
         return;
       default:
-        this._lex = this.$numberPossibleUnit;
+        this._reconsume(this.$numberPossibleUnit, 1);
     }
   }
 
@@ -853,7 +856,7 @@ export default class CSSLexer extends Lexer {
       this._wildBits += 4;
     else
       this._tokenMeta[1] = this._tokenMeta[0] <<= this._wildBits,
-      this._tokenMeta[1] &= 2 ** this._wildBits - 1,
+      this._tokenMeta[1] |= 2 ** this._wildBits - 1,
       this._token(UNICODE_RANGE_TOKEN, 1);
   }
 
