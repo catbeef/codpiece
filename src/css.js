@@ -812,7 +812,7 @@ export default class CSSParser extends Writable {
     return (
       (u === 0x75 || u === 0x55) &&
       (r === 0x72 || r === 0x52) &&
-      (r === 0x6C || l === 0x4C)
+      (l === 0x6C || l === 0x4C)
     );
   }
 
@@ -1165,6 +1165,7 @@ export default class CSSParser extends Writable {
           FUNCTION_TOKEN,
           this._urlWhitespaceCount + 1
         );
+        return;
       default:
         this._stringValuesLength = this._stringValuesStart;
         this._reconsumeCurrentCP(this.$url, cp);
