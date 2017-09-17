@@ -27,7 +27,7 @@ rules:
   eol-last: 2
   eqeqeq: [ 2, always, { null: ignore } ]
   func-call-spacing: 2
-  func-style: [ 2, expression ]
+  func-style: [ 2, 'declaration', { allowArrowFunctions: true } ]
   generator-star-spacing: [ 2, { before: true, after: true } ]
   indent:
     - 2

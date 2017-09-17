@@ -1,1 +1,1 @@
-export { default as CSSLexer } from './css-lexer';
+export { default as CSSParser } from './css';
