@@ -288,21 +288,34 @@ export default class CSSParser extends Writable {
     this._tokens       = tokens;
   }
 
+  // At various points, this may be called by lexing or parsing states to signal
+  // an error. Depending on the "recover" setting, this will either be terminal
+  // or the errors will be accreted and accessible later.
+
   _fail(module, hash) {
-    const sourceStart   = Math.max(0, this._sourceLength - 15);
-    const sourceEnd     = Math.max(this._positionsLength / 2, sourceStart + 30);
-    const sourceOff     = this._sourceEnd - this._sourceLength;
-    const source        = this._source.subarray(sourceStart, sourceEnd);
-    const sourceText    = formatRed(String.fromCodePoint(...source));
-    const sourcePointer = '^'.padStart(source.length - sourceOff);
-    const pIndex        = Math.imul(this._sourceLength - 1, 2);
-    const line          = this._positions[pIndex];
-    const column        = this._positions[pIndex + 1];
-    const disambigLine  = this._line;
-    const disambigCol   = this._column;
-    const url           = `https://drafts.csswg.org/${ module }/#${ hash }`;
-    const prelude       = `CSS error at line ${ line }, column ${ column }`;
-    const parenthetical = line !== disambigLine || column !== disambigCol
+    const badTokenStart = this._tokensLength === 0
+      ? 0
+      : this._tokens[this._tokensLength - 3];
+
+    const sourceStart    = Math.max(badTokenStart - 15, 0);
+    const startOffset    = badTokenStart - sourceStart;
+    const actualEnd      = this._positionsLength / 2;
+    const sourceEnd      = Math.min(sourceStart + 45, actualEnd);
+    const sourceLength   = sourceEnd - sourceStart;
+    const source         = this._source.subarray(sourceStart, sourceEnd);
+    const sourceText     = formatRed(String.fromCodePoint(...source));
+    const positionOffset = this._sourceLength - badTokenStart;
+    const pointerPrefix  = ' '.repeat(startOffset);
+    const pointer        = '^'.repeat(positionOffset);
+    const sourcePointer  = (pointerPrefix + pointer).slice(0, sourceLength);
+    const pIndex         = Math.imul(badTokenStart, 2);
+    const line           = this._positions[pIndex];
+    const column         = this._positions[pIndex + 1];
+    const disambigLine   = this._line;
+    const disambigCol    = this._column;
+    const url            = `https://drafts.csswg.org/${ module }/#${ hash }`;
+    const prelude        = `CSS error at line ${ line }, column ${ column }`;
+    const parenthetical  = line !== disambigLine || column !== disambigCol
       ? ` (disambiguated at line ${ disambigLine }, column ${ disambigCol })`
       : '';
 
