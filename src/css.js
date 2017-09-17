@@ -1051,7 +1051,7 @@ export default class CSSParser extends Writable {
   $delimOrPositiveSignedNumber(cp) {
     switch (cp) {
       case 0x2E:
-        this._lex = this.$delimOrSignedNumberFractional;
+        this._lex = this.$delimOrPositiveSignedNumberFractional;
         return;
       case 0x30: case 0x31: case 0x32: case 0x33: case 0x34: case 0x35:
       case 0x36: case 0x37: case 0x38: case 0x39:
@@ -1329,6 +1329,7 @@ export default class CSSParser extends Writable {
         this._commitNumber(1);
 
         if (isNameStart(cp))
+          this._stringValue(cp),
           this._lex = this.$numberUnit;
         else
           this._addNumberToken(1);
@@ -1356,6 +1357,7 @@ export default class CSSParser extends Writable {
         this._commitNumber(1);
 
         if (isNameStart(cp))
+          this._stringValue(cp),
           this._lex = this.$numberUnit;
         else
           this._addNumberToken(1);
@@ -1386,6 +1388,7 @@ export default class CSSParser extends Writable {
         this._commitNumber(1);
 
         if (isNameStart(cp))
+          this._stringValue(cp),
           this._lex = this.$numberUnit;
         else
           this._addNumberToken(1);

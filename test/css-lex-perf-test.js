@@ -13,7 +13,7 @@ const run = () => {
 
   parser.on('finish', () => {
     console.timeEnd('lex time');
-    console.log(`${ parser._tokens.length } tokens`);
+    console.log(`${ parser._tokens.length / 4 } tokens`);
 
     if (i--) run();
   });
