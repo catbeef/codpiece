@@ -77,6 +77,14 @@ const __COMMENT_TOKEN__        = 24; // Not technically a token.
 
 const EOF_SENTINEL = 0x110000;
 
+const CSYN3 = 'css-syntax-3';
+
+const CONSUME_CMNT   = 'consume-comment'
+const CONSUME_ESC_CP = 'consume-escaped-code-point'
+const CONSUME_STR_TK = 'consume-a-string-token'
+const CONSUME_TOK    = 'consume-token'
+const CONSUME_URL_TK = 'consume-url-token'
+
 // Ultimately, switch is faster than any other kind of check until the number of
 // cases is very high. Though verbose, these rip.
 
@@ -307,7 +315,9 @@ export default class CSSParser extends Writable {
     const positionOffset = this._sourceLength - badTokenStart;
     const pointerPrefix  = ' '.repeat(startOffset);
     const pointer        = '^'.repeat(positionOffset);
-    const sourcePointer  = (pointerPrefix + pointer).slice(0, sourceLength);
+    const sourcePointer  = sourceLength < startOffset + positionOffset
+      ? (pointerPrefix + pointer).slice(0, sourceLength)
+      : (pointerPrefix + pointer.slice(0, -1) + formatRed('^'));
     const pIndex         = Math.imul(badTokenStart, 2);
     const line           = this._positions[pIndex];
     const column         = this._positions[pIndex + 1];
@@ -316,7 +326,7 @@ export default class CSSParser extends Writable {
     const url            = `https://drafts.csswg.org/${ module }/#${ hash }`;
     const prelude        = `CSS error at line ${ line }, column ${ column }`;
     const parenthetical  = line !== disambigLine || column !== disambigCol
-      ? ` (disambiguated at line ${ disambigLine }, column ${ disambigCol })`
+      ? ` (determination at line ${ disambigLine }, column ${ disambigCol })`
       : '';
 
     const err = new Error([
@@ -859,7 +869,7 @@ export default class CSSParser extends Writable {
   $badURLEscape(cp) {
     switch (cp) {
       case EOF_SENTINEL:
-        if (this._fail('css-syntax-3', 'consume-escaped-code-point')) return;
+        if (this._fail(CSYN3, CONSUME_ESC_CP)) return;
         this._addStringValueTokenWithoutOffset(BAD_URL_TOKEN);
       default:
         this._lex = this.$badURL;
@@ -883,7 +893,7 @@ export default class CSSParser extends Writable {
         this._lex = this.$commentAfterAsterisk;
         return;
       case EOF_SENTINEL:
-        if (this._fail('css-syntax-3', 'consume-comment')) return;
+        if (this._fail(CSYN3, CONSUME_CMNT)) return;
         this._addGeneralTokenWithoutOffset(__COMMENT_TOKEN__);
     }
   }
@@ -896,7 +906,7 @@ export default class CSSParser extends Writable {
         this._addGeneralTokenWithoutOffset(__COMMENT_TOKEN__);
         return;
       case EOF_SENTINEL:
-        if (this._fail('css-syntax-3', 'consume-comment')) return;
+        if (this._fail(CSYN3, CONSUME_CMNT)) return;
         this._addGeneralTokenWithoutOffset(__COMMENT_TOKEN__);
         return;
       default:
@@ -1017,7 +1027,7 @@ export default class CSSParser extends Writable {
 
   $delimOrIdentInitialEscape(cp) {
     if (cp === 0x0A) {
-      if (this._fail('css-syntax-3', 'consume-token')) return;
+      if (this._fail(CSYN3, CONSUME_TOK)) return;
       this._addDelimTokenWithOffset(0x5C, 1);
       return;
     }
@@ -1093,7 +1103,7 @@ export default class CSSParser extends Writable {
       this._escapeCP = toHexValue(cp),
       this._lex = this.$escapeHex;
     else if (cp === EOF_SENTINEL)
-      this._fail('css-syntax-3', 'consume-escaped-code-point'),
+      this._fail(CSYN3, CONSUME_ESC_CP),
       this._stringValue(0xFFFD),
       this._lex = this._lexAfterEscape;
     else
@@ -1542,7 +1552,7 @@ export default class CSSParser extends Writable {
         this._addStringValueTokenWithoutOffset(STRING_TOKEN);
         return;
       case 0x0A:
-        if (this._fail('css-syntax-3', 'consume-a-string-token')) return;
+        if (this._fail(CSYN3, CONSUME_STR_TK)) return;
         this._stringValuesLength = this._stringValuesStart;
         this._addStringValueTokenWithOffset(BAD_STRING_TOKEN, 1);
         return;
@@ -1550,7 +1560,7 @@ export default class CSSParser extends Writable {
         this._lex = this.$stringEscape;
         return;
       case EOF_SENTINEL:
-        if (this._fail('css-syntax-3', 'consume-a-string-token')) return;
+        if (this._fail(CSYN3, CONSUME_STR_TK)) return;
         this._addStringValueTokenWithoutOffset(STRING_TOKEN);
         return;
       default:
@@ -1564,7 +1574,7 @@ export default class CSSParser extends Writable {
         this._lex = this.$string;
         return;
       case EOF_SENTINEL:
-        if (this._fail('css-syntax-3', 'consume-a-string-token')) return;
+        if (this._fail(CSYN3, CONSUME_STR_TK)) return;
         this._addStringValueTokenWithoutOffset(STRING_TOKEN);
         return;
       default:
@@ -1578,7 +1588,7 @@ export default class CSSParser extends Writable {
         this._lex = this.$urlAfterWhitespace;
         return;
       case 0x22: case 0x27: case 0x28:
-        this._fail('css-syntax-3', 'consume-url-token');
+        this._fail(CSYN3, CONSUME_URL_TK);
         this._stringValuesLength = this._stringValuesStart;
         this._lex = this.$badURL;
         return;
@@ -1593,11 +1603,11 @@ export default class CSSParser extends Writable {
       case 0x10: case 0x11: case 0x12: case 0x13: case 0x14: case 0x15:
       case 0x16: case 0x17: case 0x18: case 0x19: case 0x1A: case 0x1B:
       case 0x1C: case 0x1D: case 0x1E: case 0x1F: case 0x7F:
-        this._fail('css-syntax-3', 'consume-url-token'),
+        this._fail(CSYN3, CONSUME_URL_TK),
         this._stringValuesLength = this._stringValuesStart,
         this._lex = this.$badURL;
       case EOF_SENTINEL:
-        this._fail('css-syntax-3', 'consume-url-token');
+        this._fail(CSYN3, CONSUME_URL_TK);
         this._addStringValueTokenWithoutOffset(URL_TOKEN);
       default:
         this._stringValue(cp);
@@ -1609,7 +1619,7 @@ export default class CSSParser extends Writable {
       case 0x09: case 0x0A: case 0x20:
         return;
       case EOF_SENTINEL:
-        if (this._fail('css-syntax-3', 'consume-url-token')) return;
+        if (this._fail(CSYN3, CONSUME_URL_TK)) return;
       case 0x29:
         this._addStringValueTokenWithoutOffset(URL_TOKEN);
         return;
