@@ -2,7 +2,13 @@ import { WTF8ToCPs } from 'codpoint';
 import { Writable } from 'stream';
 import { writeSourceToFile } from './utf32-to-utf8';
 import { formatRed } from './err-format';
-import { fromBuffer, fromCPs, fromFilename } from './static-input-methods';
+
+import {
+  fromBuffer,
+  fromCPs,
+  fromFilename,
+  fromString
+} from './static-input-methods';
 
 // CSS has some interesting properties that make it a bit challenging to parse,
 // despite its lack of complex structures or hidden left recursion. In some ways
@@ -154,6 +160,13 @@ const formatAndTruncate = src => src.length > 20
     ' '.repeat(20 - src.length)
   }`;
 
+const createStylesheet = () => ({
+  children: []
+  column: 0,
+  line: 0,
+  type: 'stylesheet',
+});
+
 export default class CSSParser extends Writable {
   constructor({ debug, recover=true, size=DEFAULT_SIZE }={}) {
     if (!Number.isInteger(size) || size < 0)
@@ -162,6 +175,8 @@ export default class CSSParser extends Writable {
     super();
 
     this._column              = 0;
+    this._comments            = new Uint32Array(Math.floor(size / 4));
+    this._commentsLength      = 0;
     this._error               = undefined;
     this._errors              = [];
     this._escapeCount         = 0;
@@ -175,14 +190,16 @@ export default class CSSParser extends Writable {
     this._lex                 = this.$input;
     this._lexAfterEscape      = this.$input;
     this._line                = 0;
+    this._node                = createStylesheet();
     this._numericTokenIsFloat = false;
     this._numericTokenValue   = 0;
+    this._parse               = this.$$stylesheet;
     this._positions           = new Uint32Array(Math.imul(size, 2));
     this._positionsLength     = 0;
     this._recover             = Boolean(recover);
     this._source              = new Uint32Array(size);
     this._sourceLength        = 0;
-    this._stringDelimiter     = 0;
+    this._stringDelimiter     = 0x22;
     this._stringValues        = new Uint32Array(size);
     this._stringValuesLength  = 0;
     this._stringValuesStart   = 0;
@@ -274,6 +291,7 @@ export default class CSSParser extends Writable {
 
   _expandBuffers(min) {
     const length       = Math.imul(Math.max(this._sourceLength, min), 2);
+    const comments     = new Uint32Array(Math.floor(length / 4));
     const floatValues  = new Float64Array(length);
     const intValues    = new Int32Array(length);
     const positions    = new Uint32Array(Math.imul(length, 2));
@@ -281,6 +299,7 @@ export default class CSSParser extends Writable {
     const stringValues = new Uint32Array(length);
     const tokens       = new Uint32Array(Math.imul(length, 4));
 
+    comments.set(this._comments);
     floatValues.set(this._floatValues);
     intValues.set(this._intValues);
     positions.set(this._positions);
@@ -288,6 +307,7 @@ export default class CSSParser extends Writable {
     stringValues.set(this._stringValues);
     tokens.set(this._tokens);
 
+    this._comments     = comments;
     this._floatValues  = floatValues;
     this._intValues    = intValues;
     this._positions    = positions;
@@ -347,7 +367,7 @@ export default class CSSParser extends Writable {
   }
 
   _finish(done) {
-    if (this._error) return;
+    if (this._error !== undefined) return;
 
     this._source[this._sourceLength++] = EOF_SENTINEL;
 
@@ -460,7 +480,7 @@ export default class CSSParser extends Writable {
 
       this._lex(cp);
 
-      if (this._error) return done(this._error);
+      if (this._error !== undefined) return done(this._error);
 
       if (cp === 0x0A || cp === 0x2028 || cp === 0x2029) {
         this._line++;
@@ -835,7 +855,12 @@ export default class CSSParser extends Writable {
     this._stringValues[this._stringValuesLength++] = cp;
   }
 
-  _token() {}
+  _token(tokenType, index) {
+    if (tokenType === __COMMENT_TOKEN__)
+      this._comments[this._commentsLength++] = index;
+    else
+      this._parse(tokenType, index);
+  }
 
   // LEXICAL STATES ////////////////////////////////////////////////////////////
 
@@ -1645,12 +1670,22 @@ export default class CSSParser extends Writable {
         this._addWhitespaceToken(cp);
     }
   }
+
+  // SYNTACTIC STATES //////////////////////////////////////////////////////////
+
+  $$stylesheet(tokenType, index) {
+    switch (tokenType) {
+      case CDO_TOKEN: return;
+      case CDC_TOKEN: return;
+    }
+  }
 }
 
 Object.defineProperties(CSSParser, {
   fromBuffer                : { value: fromBuffer },
   fromCPs                   : { value: fromCPs },
   fromFilename              : { value: fromFilename },
+  fromString                : { value: fromString },
 
   Decoder                   : { value: WTF8ToCPs },
   decoderOpts               : { value: { discardBOM: true } },

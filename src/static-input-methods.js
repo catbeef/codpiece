@@ -38,11 +38,12 @@ export function fromCPs(cps, opts={}) {
     opts.size = cps.length;
 
   const processor = new this(opts);
-  const emit = err => processor.emit('error', err);
+  const emit = err => err === undefined || processor.emit('error', err);
 
   setImmediate(() => {
     processor._write(new Buffer(cps.buffer), undefined, emit);
-    if (!processor._error) processor._finish(emit);
+    if (processor._error === undefined) processor._finish(emit);
+    if (processor._error === undefined) processor.emit('finish');
   });
 
   return processor;
@@ -99,4 +100,8 @@ export async function fromFilename(filename, opts={}) {
   });
 
   return processor;
+}
+
+export function fromString(str, opts) {
+  return this.fromCPs(Uint32Array.from(str, c => c.codePointAt(0)));
 }
